@@ -565,7 +565,7 @@ namespace Sass {
   public:
     Function_Call(string p, size_t l, string n, Arguments* args)
     : Expression(p, l), name_(n), arguments_(args)
-    { concrete_type(STRING); }
+    { /*concrete_type(STRING);*/ }
     ATTACH_OPERATIONS();
   };
 
@@ -734,9 +734,10 @@ namespace Sass {
     ADD_PROPERTY(double, g);
     ADD_PROPERTY(double, b);
     ADD_PROPERTY(double, a);
+    ADD_PROPERTY(string, original);
   public:
-    Color(string p, size_t l, double r, double g, double b, double a = 1)
-    : Expression(p, l), r_(r), g_(g), b_(b), a_(a)
+    Color(string p, size_t l, double r, double g, double b, double a = 1, string original = "")
+    : Expression(p, l), r_(r), g_(g), b_(b), a_(a), original_(original)
     { concrete_type(COLOR); }
     string type() { return "color"; }
     static string type_name() { return "color"; }

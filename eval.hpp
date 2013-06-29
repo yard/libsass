@@ -25,16 +25,19 @@ namespace Sass {
 
     Context&   ctx;
     Env*       env;
-    bool       force;
 
     Expression* fallback_impl(AST_Node* n);
 
   public:
     Backtrace* backtrace;
-    Eval(Context&, Env*, Backtrace*);
+    // Eval*      force;
+    // bool       should_force;
+
+    Eval(Context&, Env*, Backtrace* /*, bool make_forcer = false*/);
     virtual ~Eval();
     Eval* with(Env* e, Backtrace* bt); // for setting the env before eval'ing an expression
     using Operation<Expression*>::operator();
+    Expression* force(Expression*);
 
     // for evaluating function bodies
     Expression* operator()(Block*);

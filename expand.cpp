@@ -127,9 +127,11 @@ namespace Sass {
   {
     string var(a->variable());
     if (env->has(var)) {
-      if(!a->is_guarded()) (*env)[var] = a->value()->perform(eval->with(env, backtrace));
+      // if(!a->is_guarded()) (*env)[var] = a->value()->perform(eval->force->with(env, backtrace));
+      if (!a->is_guarded()) (*env)[var] = a->value()->perform(eval->with(env, backtrace));
     }
     else {
+      // env->current_frame()[var] = a->value()->perform(eval->force->with(env, backtrace));
       env->current_frame()[var] = a->value()->perform(eval->with(env, backtrace));
     }
     return 0;
@@ -161,7 +163,8 @@ namespace Sass {
 
   Statement* Expand::operator()(If* i)
   {
-    if (*i->predicate()->perform(eval->with(env, backtrace))) {
+    if (*eval->with(env, backtrace)->force(i->predicate())) {
+    // if (*i->predicate()->perform(eval->force->with(env, backtrace))) {
       append_block(i->consequent());
     }
     else {
@@ -174,11 +177,13 @@ namespace Sass {
   Statement* Expand::operator()(For* f)
   {
     string variable(f->variable());
-    Expression* low = f->lower_bound()->perform(eval->with(env, backtrace));
+    // Expression* low = f->lower_bound()->perform(eval->force->with(env, backtrace));
+    Expression* low = eval->with(env, backtrace)->force(f->lower_bound());
     if (low->concrete_type() != Expression::NUMBER) {
       error("lower bound of `@for` directive must be numeric", low->path(), low->line(), backtrace);
     }
-    Expression* high = f->upper_bound()->perform(eval->with(env, backtrace));
+    // Expression* high = f->upper_bound()->perform(eval->force->with(env, backtrace));
+    Expression* high = eval->with(env, backtrace)->force(f->upper_bound());
     if (high->concrete_type() != Expression::NUMBER) {
       error("upper bound of `@for` directive must be numeric", high->path(), high->line(), backtrace);
     }
@@ -217,7 +222,8 @@ namespace Sass {
     env = &new_env;
     Block* body = e->block();
     for (size_t i = 0, L = list->length(); i < L; ++i) {
-      (*env)[variable] = (*list)[i]->perform(eval->with(env, backtrace));
+      // (*env)[variable] = (*list)[i]->perform(eval->force->with(env, backtrace));
+      (*env)[variable] = eval->with(env, backtrace)->force((*list)[i]);
       append_block(body);
     }
     env = new_env.parent();
@@ -228,7 +234,8 @@ namespace Sass {
   {
     Expression* pred = w->predicate();
     Block* body = w->block();
-    while (*pred->perform(eval->with(env, backtrace))) {
+    while (*eval->with(env, backtrace)->force(pred)) {
+    // while (*pred->perform(eval->force->with(env, backtrace))) {
       append_block(body);
     }
     return 0;

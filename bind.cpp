@@ -129,7 +129,8 @@ namespace Sass {
         }
         else if (leftover->default_value()) {
           // make sure to eval the default value in the env that we've been populating
-          env->current_frame()[leftover->name()] = leftover->default_value()->perform(eval->with(env, eval->backtrace));
+          // env->current_frame()[leftover->name()] = leftover->default_value()->perform(eval->force->with(env, eval->backtrace));
+          env->current_frame()[leftover->name()] = eval->with(env, eval->backtrace)->force(leftover->default_value());
         }
         else {
           // param is unbound and has no default value -- error

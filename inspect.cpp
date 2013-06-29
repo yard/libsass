@@ -323,6 +323,11 @@ namespace Sass {
 
   void Inspect::operator()(Color* c)
   {
+    if (!c->original().empty()) {
+      buffer += c->original();
+      return;
+    }
+
     stringstream ss;
     double r = cap_channel<0xff>(c->r());
     double g = cap_channel<0xff>(c->g());

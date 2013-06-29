@@ -27,9 +27,38 @@ namespace Sass {
     add, sub, mul, div, fmod
   };
 
-  Eval::Eval(Context& ctx, Env* env, Backtrace* bt)
-  : ctx(ctx), env(env), force(force), backtrace(bt) { }
-  Eval::~Eval() { }
+  Eval::Eval(Context& ctx, Env* env, Backtrace* bt/*, bool make_forcer*/)
+  : ctx(ctx), env(env), backtrace(bt)//, force(0), should_force(false)
+  {
+    // if (make_forcer) {
+    //   force = new Eval(ctx, env, bt);
+    //   force->force = force;
+    //   force->should_force = true;
+    // }
+  }
+
+  Eval::~Eval() {
+    // if (force) {
+    //   force->force = 0;
+    //   delete force;
+    // }
+  }
+
+  Expression* Eval::force(Expression* e)
+  {
+    To_String to_string;
+    // e->is_delayed(false);
+    // e = e->perform(this);
+    // while (e->concrete_type() == Expression::NONE) {
+    //   e->is_delayed(false);
+    //   e = e->perform(this);
+    // }
+    do {
+      e->is_delayed(false);
+      e = e->perform(this);
+    } while (e->concrete_type() == Expression::NONE);
+    return e;
+  }
 
   Eval* Eval::with(Env* e, Backtrace* bt) // for setting the env before eval'ing an expression
   {
@@ -62,7 +91,7 @@ namespace Sass {
 
   Expression* Eval::operator()(If* i)
   {
-    if (*i->predicate()->perform(this)) {
+    if (*force(i->predicate())) {
       return i->consequent()->perform(this);
     }
     else {
@@ -75,11 +104,11 @@ namespace Sass {
   Expression* Eval::operator()(For* f)
   {
     string variable(f->variable());
-    Expression* low = f->lower_bound()->perform(this);
+    Expression* low = force(f->lower_bound());
     if (low->concrete_type() != Expression::NUMBER) {
       error("lower bound of `@for` directive must be numeric", low->path(), low->line());
     }
-    Expression* high = f->upper_bound()->perform(this);
+    Expression* high = force(f->upper_bound());
     if (high->concrete_type() != Expression::NUMBER) {
       error("upper bound of `@for` directive must be numeric", high->path(), high->line());
     }
@@ -105,7 +134,7 @@ namespace Sass {
   Expression* Eval::operator()(Each* e)
   {
     string variable(e->variable());
-    Expression* expr = e->list()->perform(this);
+    Expression* expr = force(e->list());
     List* list = 0;
     if (expr->concrete_type() != Expression::LIST) {
       list = new (ctx.mem) List(expr->path(), expr->line(), 1, List::COMMA);
@@ -121,7 +150,7 @@ namespace Sass {
     Block* body = e->block();
     Expression* val = 0;
     for (size_t i = 0, L = list->length(); i < L; ++i) {
-      (*env)[variable] = (*list)[i];
+      (*env)[variable] = force((*list)[i]);
       val = body->perform(this);
       if (val) break;
     }
@@ -133,7 +162,7 @@ namespace Sass {
   {
     Expression* pred = w->predicate();
     Block* body = w->block();
-    while (*pred->perform(this)) {
+    while (*force(pred)) {
       Expression* val = body->perform(this);
       if (val) return val;
     }
@@ -186,7 +215,12 @@ namespace Sass {
   {
     Binary_Expression::Type op_type = b->type();
     // don't eval delayed expressions (the '/' when used as a separator)
-    if (op_type == Binary_Expression::DIV && b->is_delayed()) return b;
+    if ((op_type == Binary_Expression::DIV || op_type == Binary_Expression::OR || op_type == Binary_Expression::AND) &&
+        b->is_delayed()) {
+      // To_String to_string;
+      // cerr << "not evaluating " << b->perform(&to_string) << endl;
+      return b;
+    }
     // the logical connectives need to short-circuit
     Expression* lhs = b->left()->perform(this);
     switch (op_type) {
@@ -206,12 +240,12 @@ namespace Sass {
 
     // see if it's a relational expression
     switch(op_type) {
-      case Binary_Expression::EQ:  return new (ctx.mem) Boolean(b->path(), b->line(), eq(lhs, rhs, ctx));
-      case Binary_Expression::NEQ: return new (ctx.mem) Boolean(b->path(), b->line(), !eq(lhs, rhs, ctx));
-      case Binary_Expression::GT:  return new (ctx.mem) Boolean(b->path(), b->line(), !lt(lhs, rhs, ctx) && !eq(lhs, rhs, ctx));
-      case Binary_Expression::GTE: return new (ctx.mem) Boolean(b->path(), b->line(), !lt(lhs, rhs, ctx));
-      case Binary_Expression::LT:  return new (ctx.mem) Boolean(b->path(), b->line(), lt(lhs, rhs, ctx));
-      case Binary_Expression::LTE: return new (ctx.mem) Boolean(b->path(), b->line(), lt(lhs, rhs, ctx) || eq(lhs, rhs, ctx));
+      case Binary_Expression::EQ:  return new (ctx.mem) Boolean(b->path(), b->line(), eq(force(lhs), force(rhs), ctx));
+      case Binary_Expression::NEQ: return new (ctx.mem) Boolean(b->path(), b->line(), !eq(force(lhs), force(rhs), ctx));
+      case Binary_Expression::GT:  return new (ctx.mem) Boolean(b->path(), b->line(), !lt(force(lhs), force(rhs), ctx) && !eq(force(lhs), force(rhs), ctx));
+      case Binary_Expression::GTE: return new (ctx.mem) Boolean(b->path(), b->line(), !lt(force(lhs), force(rhs), ctx));
+      case Binary_Expression::LT:  return new (ctx.mem) Boolean(b->path(), b->line(), lt(force(lhs), force(rhs), ctx));
+      case Binary_Expression::LTE: return new (ctx.mem) Boolean(b->path(), b->line(), lt(force(lhs), force(rhs), ctx) || eq(force(lhs), force(rhs), ctx));
 
       default:                     break;
     }
@@ -278,9 +312,9 @@ namespace Sass {
     Native_Function func   = def->native_function();
     Sass_C_Function c_func = def->c_function();
 
-    for (size_t i = 0, L = args->length(); i < L; ++i) {
-      (*args)[i]->value((*args)[i]->value()->perform(this));
-    }
+    // for (size_t i = 0, L = args->length(); i < L; ++i) {
+    //   (*args)[i]->value((*args)[i]->value()->perform(this));
+    // }
 
     Parameters* params = def->parameters();
     Env new_env;
@@ -291,6 +325,8 @@ namespace Sass {
 
     // Backtrace here(backtrace, c->path(), c->line(), ", in function `" + c->name() + "`");
     // backtrace = &here;
+
+    // TODO: REFACTOR THE FOLLOWING CONDITIONALS
 
     // if it's user-defined, eval the body
     if (body) {
@@ -424,14 +460,18 @@ namespace Sass {
                                        t->line(),
                                        static_cast<double>(strtol(r.c_str(), NULL, 16)),
                                        static_cast<double>(strtol(g.c_str(), NULL, 16)),
-                                       static_cast<double>(strtol(b.c_str(), NULL, 16)));
+                                       static_cast<double>(strtol(b.c_str(), NULL, 16)),
+                                       1,
+                                       t->value());
         }
         else {
           result = new (ctx.mem) Color(t->path(),
                                        t->line(),
                                        static_cast<double>(strtol(string(2,hext[0]).c_str(), NULL, 16)),
                                        static_cast<double>(strtol(string(2,hext[1]).c_str(), NULL, 16)),
-                                       static_cast<double>(strtol(string(2,hext[2]).c_str(), NULL, 16)));
+                                       static_cast<double>(strtol(string(2,hext[2]).c_str(), NULL, 16)),
+                                       1,
+                                       t->value());
         }
       } break;
     }
@@ -462,7 +502,7 @@ namespace Sass {
 
   Expression* Eval::operator()(String_Constant* s)
   {
-    if (!s->is_delayed() && ctx.names_to_colors.count(s->value())) {
+    if ((!s->is_delayed()) && ctx.names_to_colors.count(s->value())) {
       Color* c = new (ctx.mem) Color(*ctx.names_to_colors[s->value()]);
       c->path(s->path());
       c->line(s->line());
@@ -502,15 +542,14 @@ namespace Sass {
 
   Expression* Eval::operator()(Null* n)
   {
-    return n;
+    if (n->is_delayed()) return new (ctx.mem) String_Constant(n->path(), n->line(), "null");
+    else                 return n;
   }
 
   Expression* Eval::operator()(Argument* a)
   {
     Expression* val = a->value();
-    val->is_delayed(false);
-    val = val->perform(this);
-    val->is_delayed(false);
+    val = force(val);
     if (a->is_rest_argument() && (val->concrete_type() != Expression::LIST)) {
       List* wrapper = new (ctx.mem) List(val->path(),
                                          val->line(),
@@ -736,6 +775,16 @@ namespace Sass {
     To_String to_string;
     Expression::Concrete_Type ltype = lhs->concrete_type();
     Expression::Concrete_Type rtype = rhs->concrete_type();
+    if (ltype == Expression::COLOR) {
+      Color* lhsc = new (ctx.mem) Color(*static_cast<Color*>(lhs));
+      lhsc->original("");
+      lhs = lhsc;
+    }
+    if (rtype == Expression::COLOR) {
+      Color* rhsc = new (ctx.mem) Color(*static_cast<Color*>(rhs));
+      rhsc->original("");
+      rhs = rhsc;
+    }
     string lstr(lhs->perform(&to_string));
     string rstr(rhs->perform(&to_string));
     bool unquoted = false;

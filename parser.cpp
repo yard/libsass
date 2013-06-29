@@ -190,7 +190,6 @@ namespace Sass {
     bool is_rest = false;
     if (lex< exactly<':'> >()) { // there's a default value
       val = parse_space_list();
-      val->is_delayed(false);
     }
     else if (lex< exactly< ellipsis > >()) {
       is_rest = true;
@@ -239,13 +238,11 @@ namespace Sass {
       string name(lexed);
       lex< exactly<':'> >();
       Expression* val = parse_space_list();
-      val->is_delayed(false);
       arg = new (ctx.mem) Argument(path, line, val, name);
     }
     else {
       bool is_arglist = false;
       Expression* val = parse_space_list();
-      val->is_delayed(false);
       if (lex< exactly< ellipsis > >()) {
         is_arglist = true;
       }
@@ -261,7 +258,6 @@ namespace Sass {
     size_t var_line = line;
     if (!lex< exactly<':'> >()) error("expected ':' after " + name + " in assignment statement");
     Expression* val = parse_list();
-    val->is_delayed(false);
     bool is_guarded = lex< default_flag >();
     Assignment* var = new (ctx.mem) Assignment(path, var_line, name, val, is_guarded);
     return var;
@@ -935,13 +931,25 @@ namespace Sass {
     { return Parser::from_token(lexed, ctx, path, line).parse_value_schema(); }
 
     if (lex< sequence< true_val, negate< identifier > > >())
-    { return new (ctx.mem) Boolean(path, line, true); }
+    {
+      Boolean* b = new (ctx.mem) Boolean(path, line, true);
+      b->is_delayed(true);
+      return b;
+    }
 
     if (lex< sequence< false_val, negate< identifier > > >())
-    { return new (ctx.mem) Boolean(path, line, false); }
+    {
+      Boolean* b = new (ctx.mem) Boolean(path, line, false);
+      b->is_delayed(true);
+      return b;
+    }
 
     if (lex< sequence< null, negate< identifier > > >())
-    { return new (ctx.mem) Null(path, line); }
+    {
+      Null* n = new (ctx.mem) Null(path, line);
+      n->is_delayed(true);
+      return n;
+    }
 
     if (lex< identifier >()) {
       String_Constant* str = new (ctx.mem) String_Constant(path, line, lexed);
@@ -1146,7 +1154,6 @@ namespace Sass {
     lex< if_directive >() || (else_if && lex< exactly<if_after_else_kwd> >());
     size_t if_line = line;
     Expression* predicate = parse_list();
-    predicate->is_delayed(false);
     if (!peek< exactly<'{'> >()) error("expected '{' after the predicate for @if");
     Block* consequent = parse_block();
     Block* alternative = 0;
@@ -1173,13 +1180,11 @@ namespace Sass {
     string var(lexed);
     if (!lex< from >()) error("expected 'from' keyword in @for directive");
     Expression* lower_bound = parse_expression();
-    lower_bound->is_delayed(false);
     bool inclusive = false;
     if (lex< through >()) inclusive = true;
     else if (lex< to >()) inclusive = false;
     else                  error("expected 'through' or 'to' keywod in @for directive");
     Expression* upper_bound = parse_expression();
-    upper_bound->is_delayed(false);
     if (!peek< exactly<'{'> >()) error("expected '{' after the upper bound in @for directive");
     Block* body = parse_block();
     return new (ctx.mem) For(path, for_line, var, lower_bound, upper_bound, body, inclusive);
@@ -1193,13 +1198,6 @@ namespace Sass {
     string var(lexed);
     if (!lex< in >()) error("expected 'in' keyword in @each directive");
     Expression* list = parse_list();
-    list->is_delayed(false);
-    if (list->concrete_type() == Expression::LIST) {
-      List* l = static_cast<List*>(list);
-      for (size_t i = 0, L = l->length(); i < L; ++i) {
-        (*l)[i]->is_delayed(false);
-      }
-    }
     if (!peek< exactly<'{'> >()) error("expected '{' after the upper bound in @each directive");
     Block* body = parse_block();
     return new (ctx.mem) Each(path, each_line, var, list, body);
@@ -1210,7 +1208,6 @@ namespace Sass {
     lex< while_directive >();
     size_t while_line = line;
     Expression* predicate = parse_list();
-    predicate->is_delayed(false);
     Block* body = parse_block();
     return new (ctx.mem) While(path, while_line, predicate, body);
   }
@@ -1485,10 +1482,11 @@ namespace Sass {
     for (size_t i = 0, S = operands.size(); i < S; ++i) {
       base = new (ctx.mem) Binary_Expression(path, line, op, base, operands[i]);
       Binary_Expression* b = static_cast<Binary_Expression*>(base);
-      if (op == Binary_Expression::DIV && b->left()->is_delayed() && b->right()->is_delayed()) {
+      if ((op == Binary_Expression::DIV || op == Binary_Expression::OR || op == Binary_Expression::AND) &&
+          b->left()->is_delayed() && b->right()->is_delayed()) {
         base->is_delayed(true);
       }
-      else {
+      else if (op == Binary_Expression::DIV) {
         b->left()->is_delayed(false);
         b->right()->is_delayed(false);
       }
@@ -1501,10 +1499,11 @@ namespace Sass {
     for (size_t i = 0, S = operands.size(); i < S; ++i) {
       base = new (ctx.mem) Binary_Expression(path, line, ops[i], base, operands[i]);
       Binary_Expression* b = static_cast<Binary_Expression*>(base);
-      if (ops[i] == Binary_Expression::DIV && b->left()->is_delayed() && b->right()->is_delayed()) {
+      if ((ops[i] == Binary_Expression::DIV || ops[i] == Binary_Expression::OR || ops[i] == Binary_Expression::AND) &&
+          b->left()->is_delayed() && b->right()->is_delayed()) {
         base->is_delayed(true);
       }
-      else {
+      else if (ops[i] == Binary_Expression::DIV) {
         b->left()->is_delayed(false);
         b->right()->is_delayed(false);
       }
