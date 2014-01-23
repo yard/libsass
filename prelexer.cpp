@@ -485,7 +485,7 @@ namespace Sass {
 
     const char* UNICODE(const char* src) {
       return sequence< exactly<'\\'>,
-                       between<H, 1, 6>,
+                       between<1, 6, H>,
                        optional< class_char<url_space_chars> > >(src);
     }
 
@@ -514,5 +514,64 @@ namespace Sass {
       }
       return pos;
     }
+
+    // follow the CSS spec more closely
+    const char* newline(const char* src) {
+      return alternatives< exactly<'\n'>,
+                           sequence< exactly<'\r'>, exactly<'\n'> >,
+                           exactly<'\r'>,
+                           exactly<'\f'> >(src);
+    }
+
+    const char* non_ascii(const char* src) {
+      return static_cast<unsigned char>(*src) > 127 ? ++src : 0;
+    }
+
+    const char* name_start(const char* src) {
+      return alternatives< alpha,
+                           exactly<'_'>,
+                           non_ascii >(src);
+    }
+
+    const char* name_char(const char* src) {
+      return alternatives< name_start,
+                           digit,
+                           exactly<'-'> >(src);
+    }
+
+    const char* hex_digit(const char* src) {
+      return alternatives< digit, class_char<hex_alpha_chars> >(src);
+    }
+
+    const char* escape(const char* src) {
+      return sequence< exactly<'\\'>,
+                       alternatives< negate< alternatives< newline, hex_digit > >,
+                                     sequence< between<1, 6, hex_digit>, spaces > > >(src);
+    }
+
+    // const char* name_token(const char* src) {
+    //   return one_plus< alternatives< name_char, escape > >(src);
+    // }
+
+    const char* ident(const char* src) {
+      return sequence<
+               optional< exactly<'-'> >,
+               alternatives<
+                 name_start,
+                 escape
+               >,
+               zero_plus<
+                 alternatives<
+                   name_char,
+                   escape
+                 >
+               >
+             >(src);
+    }
+
+    const char* function_token(const char* src) {
+      return sequence< ident, exactly<'('> >(src);
+    }
+
   }
 }

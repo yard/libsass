@@ -107,7 +107,7 @@ namespace Sass {
     }
 
     // Tries to match a certain number of times (between the supplied interval).
-    template<prelexer mx, size_t lo, size_t hi>
+    template<size_t lo, size_t hi, prelexer mx>
     const char* between(const char* src) {
       for (size_t i = 0; i < lo; ++i) {
         src = mx(src);
