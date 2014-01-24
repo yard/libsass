@@ -180,7 +180,7 @@ namespace Sass {
     template <prelexer mx1, prelexer mx2,
               prelexer mx3, prelexer mx4,
               prelexer mx5, prelexer mx6,
-              prelexer mx7>
+              prelexer mx7, prelexer mx8>
     const char* sequence(const char* src) {
       const char* rslt = src;
       (rslt = mx1(rslt)) && (rslt = mx2(rslt)) && (rslt = mx3(rslt)) &&
