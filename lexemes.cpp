@@ -1,5 +1,4 @@
-#include "prelexer.hpp"
-#include "constants.hpp"
+#include "lexer_combinators.hpp"
 #include <cctype>
 
 namespace Sass {
@@ -26,6 +25,7 @@ namespace Sass {
 
     const char* non_printable(const char* src) {
       const unsigned char c = static_cast<unsigned char>(*src);
+      // Should we guard against 0x00 if we're assuming that that's the EOI?
       if (c <= 0x08 || c == 0x0b || (c >= 0x0e && c <= 0x1f) || c == 0x7f)
         return src + 1;
       else
@@ -90,6 +90,7 @@ namespace Sass {
       >(src);
     }
 
+    // check for special functions (e.g., `url`, `calc`) in the parser
     const char* function(const char* src) {
       return sequence< identifier, exactly<'('> >(src);
     }
@@ -152,7 +153,13 @@ namespace Sass {
           exactly<'"'>,
           zero_plus<
             alternatives<
-              negate< alternatives< exactly<'"'>, exactly<'\\'>, newline > >,
+              any_char_except<
+                alternatives<
+                  exactly<'"'>,
+                  exactly<'\\'>,
+                  newline
+                >
+              >,
               sequence< exactly<'\\'>, newline >,
               escape
             >
@@ -164,7 +171,13 @@ namespace Sass {
           exactly<'\''>,
           zero_plus<
             alternatives<
-              negate< alternatives< exactly<'\''>, exactly<'\\'>, newline > >,
+              any_char_except<
+                alternatives<
+                  exactly<'\''>,
+                  exactly<'\\'>,
+                  newline
+                >
+              >,
               sequence< exactly<'\\'>, newline >,
               escape
             >
@@ -184,7 +197,7 @@ namespace Sass {
           exactly<'"'>,
           zero_plus<
             alternatives<
-              negate<
+              any_char_except<
                 alternatives<
                   exactly<'"'>,
                   exactly<'\\'>,
@@ -203,7 +216,7 @@ namespace Sass {
           exactly<'\''>,
           zero_plus<
             alternatives<
-              negate<
+              any_char_except<
                 alternatives<
                   exactly<'\''>,
                   exactly<'\\'>,
@@ -225,7 +238,7 @@ namespace Sass {
       return
       one_plus<
         alternatives<
-          negate<
+          any_char_except<
             alternatives<
               exactly<'"'>,
               exactly<'\''>,
@@ -375,7 +388,7 @@ namespace Sass {
           >
         >,
         ws,
-        class_chars<statement_terminator_chars>
+        in<statement_terminator_chars>
       >(src);
     }
 
@@ -387,7 +400,7 @@ namespace Sass {
       return
       sequence<
         exactly<comment_start_sym>,
-        zero_plus< negate<comment_end_sym> >,
+        zero_plus< any_char_except<comment_end_sym> >,
         exactly<comment_end_sym>
       >(src);
     }
@@ -396,7 +409,9 @@ namespace Sass {
       return
       sequence<
         exactly<line_comment_start_sym>,
-        zero_plus< negate<newline> >,
+        zero_plus< any_char_except<newline> >,
+        alternatives< eoi, newline >
+      >(src);
     }
 
 

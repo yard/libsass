@@ -1,8 +1,30 @@
 namespace Sass {
   namespace Prelexer {
 
-    typedef int (*ctype_predicate)(int);
     typedef const char* (*prelexer)(const char*);
+
+    // match the null character
+    const char* eoi(const char* src) {
+      return *src ? 0 : src; // hmmm ... safer not to go past the end....
+    }
+
+    // Match any single character (except the null character).
+    const char* any_char(const char* src) {
+      return *src ? src+1 : src;
+    }
+
+    // Match any single character except the supplied one (or null).
+    template <char c>
+    const char* any_char_except(const char* src) {
+      return (*src && *src != c) ? src+1 : 0;
+    }
+
+    // Match any single character as long as the input stream doesn't begin
+    // with the supplied pattern (or null).
+    template <prelexer mx>
+    const char* any_char_except(const char* src) {
+      return *src && !mx(src) ? src + 1 : 0;
+    }
 
     // Match a single character literal.
     template <char pre>
@@ -10,7 +32,7 @@ namespace Sass {
       return *src == pre ? src + 1 : 0;
     }
 
-    // Match a string constant.
+    // Match against the provided string constant.
     template <const char* prefix>
     const char* exactly(const char* src) {
       const char* pre = prefix;
@@ -20,13 +42,21 @@ namespace Sass {
 
     // Match a single character that is a member of the supplied class.
     template <const char* char_class>
-    const char* class_char(const char* src) {
+    const char* in(const char* src) {
       const char* cc = char_class;
       while (*cc && *src != *cc) ++cc;
       return *cc ? src + 1 : 0;
     }
 
-    // Tries to match a certain number of times (between the supplied interval).
+    // Match a single character that isn't a member of the supplied class.
+    template <const char* char_class>
+    const char* not_in(const char* src) {
+      const char* cc = char_class;
+      while (*cc && *src != *cc) ++cc;
+      return !*cc ? src + 1 : 0;
+    }
+
+    // Tries to match a certain number of times between the supplied interval.
     template<size_t lo, size_t hi, prelexer mx>
     const char* between(const char* src) {
       for (size_t i = 0; i < lo; ++i) {
@@ -43,7 +73,8 @@ namespace Sass {
 
     // TODO: use variadic templates when we upgrade to C++ 11. Also, see if
     // we can't use expression templates and macros to provide better syntax
-    // without losing all the compile-time expansion.
+    // without losing all the compile-time expansion (n.b.: this would obviate
+    // the need for variadic templates).
 
     // Tries the matchers in sequence and returns the first match (or none)
     template <prelexer mx1, prelexer mx2>
@@ -230,14 +261,14 @@ namespace Sass {
     // Negative lookahead -- if the first pattern matches, then fail. Otherwise
     // match the second pattern.
     template <prelexer pre, prelexer mx>
-    const char* without(const char* src) {
+    const char* without_prefix(const char* src) {
       return sequence< negate<pre>, mx >(src);
     }
 
     // Positive lookahead -- make sure the first pattern matches without
     // consuming any input, then match the second pattern.
     template <prelexer pre, prelexer mx>
-    const char* with(const char* src) {
+    const char* with_prefix(const char* src) {
       return sequence< look<pre>, mx >(src);
     }
 
