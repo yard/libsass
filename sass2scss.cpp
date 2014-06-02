@@ -110,18 +110,19 @@ namespace Sass
 		// resulting string
 		string scss = "";
 
+		// eat double-slash comments at once
+		int double_slash_comment_position = sass.find("//");
+		if (double_slash_comment_position != string::npos) {
+			sass = sass.substr(0, double_slash_comment_position);
+		}
+
+
 		// get postion of first meaningfull character in string
 		int pos_left = sass.find_first_not_of(" \t\n\v\f\r");
 		int pos_right = sass.find_last_not_of(" \t\n\v\f\r");
 
 		// special case for final run
 		if (converter.end_of_file) pos_left = 0;
-
-		// eat double-slash comments at once
-		int double_slash_comment_position = sass.find("//");
-		if (double_slash_comment_position != string::npos) {
-			sass = sass.substr(0, double_slash_comment_position);
-		}
 
 		// maybe has only whitespace
 		if (pos_left == string::npos)
