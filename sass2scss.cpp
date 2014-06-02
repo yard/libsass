@@ -117,6 +117,12 @@ namespace Sass
 		// special case for final run
 		if (converter.end_of_file) pos_left = 0;
 
+		// eat double-slash comments at once
+		int double_slash_comment_position = sass.find("//");
+		if (double_slash_comment_position != string::npos) {
+			sass = sass.substr(0, double_slash_comment_position);
+		}
+
 		// maybe has only whitespace
 		if (pos_left == string::npos)
 		{
