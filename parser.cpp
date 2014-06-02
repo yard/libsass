@@ -107,7 +107,9 @@ namespace Sass {
       else {
         lex< spaces_and_comments >();
         if (position >= end) break;
-        error("invalid top-level expression");
+        char message[512];
+        sprintf(message, "invalid top-level expression: %s < %s", position, end);
+        error(message);
       }
       lex< optional_spaces >();
     }
@@ -137,9 +139,20 @@ namespace Sass {
         }
         else {
           string current_dir = File::dir_name(path);
-          string resolved(ctx.add_file(current_dir, unquote(import_path)));
-          if (resolved.empty()) error("file to import not found or unreadable: " + import_path);
-          imp->files().push_back(resolved);
+
+          std::vector<string> paths = ctx.resolve_imports( current_dir, unquote(import_path) );
+
+          if (paths.size() > 0) {
+            for(std::vector<string>::iterator i = paths.begin(); i != paths.end(); ++i) {
+              string resolved(ctx.add_file(*i));
+              if (resolved.empty()) error("file to import not found or unreadable: " + import_path);
+              imp->files().push_back(resolved);  
+            }
+          } else {
+            string resolved(ctx.add_file(current_dir, unquote(import_path)));
+            if (resolved.empty()) error("file to import not found or unreadable: " + import_path);
+            imp->files().push_back(resolved);
+          }
         }
       }
       else if (peek< uri_prefix >()) {

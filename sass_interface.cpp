@@ -112,13 +112,20 @@ extern "C" {
                        .include_paths(vector<string>())
                        .precision(c_ctx->options.precision ? c_ctx->options.precision : 5)
       );
+      
       if (c_ctx->c_functions) {
-        struct Sass_C_Function_Descriptor* this_func_data = c_ctx->c_functions;
-        while (this_func_data->signature && this_func_data->function) {
-          cpp_ctx.c_functions.push_back(*this_func_data);
-          ++this_func_data;
+        for(int i = 0; i < c_ctx->num_c_functions; i++) {
+          struct Sass_C_Function_Descriptor* descr = c_ctx->c_functions + i;
+
+          if (strcmp(descr->signature, "resolve_imports") == 0) {
+            cpp_ctx.__resolve_imports = descr->function;
+          }
+
+          cpp_ctx.c_functions.push_back(*descr);
         }
+
       }
+
       c_ctx->output_string = cpp_ctx.compile_string();
       c_ctx->source_map_string = cpp_ctx.generate_source_map();
       c_ctx->error_message = 0;

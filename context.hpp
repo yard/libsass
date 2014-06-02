@@ -86,6 +86,8 @@ namespace Sass {
     char* generate_source_map();
 
     std::vector<string> get_included_files();
+    std::vector<string> resolve_imports(string, string);
+    Sass_C_Function __resolve_imports;
 
   private:
     string format_source_mapping_url(const string& file) const;
