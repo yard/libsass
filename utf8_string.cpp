@@ -2,6 +2,7 @@
 #define SASS_UTF8_STRING
 
 #include <string>
+#include <stdlib.h>
 
 namespace Sass {
   namespace UTF_8 {
@@ -107,7 +108,7 @@ namespace Sass {
       else if (index == 0) {
         return 0;
       }
-      else if (std::abs(index) <= signed_len) {
+      else if (abs(index) <= signed_len) {
         // negative and within string length
         return index + signed_len;
       }
