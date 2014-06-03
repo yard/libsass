@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <iostream>
+#include <stdio.h>
 #include "parser.hpp"
 #include "file.hpp"
 #include "inspect.hpp"
