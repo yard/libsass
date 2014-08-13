@@ -64,6 +64,8 @@ namespace Sass {
     extensions           (multimap<Compound_Selector, Complex_Selector*>()),
     subset_map           (Subset_Map<string, pair<Complex_Selector*, Compound_Selector*> >())
   {
+    __resolve_imports = NULL;
+
     cwd = get_cwd();
 
     collect_include_paths(initializers.include_paths_c_str());
@@ -290,6 +292,24 @@ namespace Sass {
       return included_files;
   }
 
+  std::vector<string> Context::resolve_imports(string cwd, string path) {
+    std::vector<string> paths;
+
+    if (__resolve_imports) {
+      Sass_Value arg = make_sass_list(2, SASS_SPACE);
+      arg.list.values[0] = make_sass_string( cwd.c_str() );
+      arg.list.values[1] = make_sass_string( path.c_str() );
+
+      Sass_Value result = __resolve_imports( arg, NULL );
+
+      for(int i = 0; i < result.list.length; i++) {
+        paths.push_back( result.list.values[i].string.value );
+      }
+    }
+
+    return paths;
+  }
+
   string Context::get_cwd()
   {
     const size_t wd_len = 1024;
@@ -420,6 +440,10 @@ namespace Sass {
   }
   void register_c_function(Context& ctx, Env* env, Sass_C_Function_Descriptor descr)
   {
+    if (strcmp(descr.signature, "resolve_imports") == 0) {
+      ctx.__resolve_imports = descr.function;
+    }
+
     Definition* def = make_c_function(descr.signature, descr.function, descr.cookie, ctx);
     def->environment(env);
     (*env)[def->name() + "[f]"] = def;
